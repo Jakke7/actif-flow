@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Actif Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: test-pagina met het toestel (laptop of gsm) links en een onderzoekerspaneel rechts */
+:root{
+  --bg:#E8EEEB; --surface:#FFFFFF; --surface-2:#F2F6F4; --ink:#14302A; --muted:#5A6E68; --line:#D3DFDA;
+  --pine:#1F5A4E; --pine-ink:#FFFFFF; --pine-soft:#DCEBE5; --amber:#E3A12A; --amber-soft:#FAEED3; --amber-ink:#3D2A05;
+  --meet:#C9D6E6; --meet-ink:#203247; --focus:#E4ECE8; --danger:#A9473A; --frame:#1A2321; --frame-hi:#2C3734;
+  --font-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F1614; --surface:#18211F; --surface-2:#1F2A27; --ink:#E3ECE8; --muted:#94A6A0; --line:#2C3A36;
+  --pine:#5FB39E; --pine-ink:#0C1F1A; --pine-soft:#1F3A33; --amber:#F0B547; --amber-soft:#3A2E14; --amber-ink:#2A1C02;
+  --meet:#2A3A50; --meet-ink:#CFDCEC; --focus:#24312D; --danger:#E08374; --frame:#050908; --frame-hi:#26302D; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0F1614; --surface:#18211F; --surface-2:#1F2A27; --ink:#E3ECE8; --muted:#94A6A0; --line:#2C3A36;
+  --pine:#5FB39E; --pine-ink:#0C1F1A; --pine-soft:#1F3A33; --amber:#F0B547; --amber-soft:#3A2E14; --amber-ink:#2A1C02;
+  --meet:#2A3A50; --meet-ink:#CFDCEC; --focus:#24312D; --danger:#E08374; --frame:#050908; --frame-hi:#26302D; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+
+.top{max-width:1360px;margin:0 auto 18px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:40px;height:40px;border-radius:12px;background:var(--pine);display:grid;place-items:center;flex:none}
+.top h1{font-size:26px}
+.top p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+.seg button{border:0;background:none;padding:8px 18px;border-radius:999px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--pine);color:var(--pine-ink)}
+
+.wrap{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:24px;align-items:start}
+@media (max-width:1100px){ .wrap{grid-template-columns:minmax(0,1fr)} }
+.stage{min-width:0;overflow-x:auto;padding-bottom:6px;display:flex;justify-content:center}
+
+/* Toestellen */
+.laptop{width:980px;flex:none}
+.laptop .bezel{background:var(--frame);border-radius:18px 18px 6px 6px;padding:14px 14px 18px}
+.laptop .screen{height:600px;border-radius:6px}
+.laptop .base{height:16px;margin:0 -40px;background:linear-gradient(var(--frame-hi),var(--frame));border-radius:0 0 18px 18px}
+.phone{width:384px;flex:none;background:var(--frame);border-radius:48px;padding:12px}
+.phone .screen{height:780px;border-radius:38px}
+.screen{background:var(--bg);color:var(--ink);overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+/* App */
+.app{flex:1;min-height:0;display:flex;background:var(--bg)}
+.app.is-laptop{flex-direction:row}
+.app.is-phone{flex-direction:column}
+.statusbar{display:flex;justify-content:space-between;padding:12px 26px 4px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.side{width:210px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.side .mark{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:18px;padding:0 8px 18px}
+.side .mark span{width:28px;height:28px;border-radius:9px;background:var(--pine);color:var(--pine-ink);display:grid;place-items:center}
+.navbtn{display:flex;align-items:center;gap:10px;border:0;background:none;padding:10px 12px;border-radius:10px;font-weight:600;color:var(--muted);text-align:left}
+.navbtn[aria-current="page"]{background:var(--pine-soft);color:var(--ink)}
+.navbtn svg{flex:none}
+.side .foot{margin-top:auto;font-size:12px;color:var(--muted);padding:8px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:6px 6px 16px}
+.tabs .navbtn{flex-direction:column;gap:3px;font-size:11px;padding:8px 4px;text-align:center}
+.content{flex:1;min-width:0;min-height:0;overflow-y:auto;padding:24px 28px 28px;display:flex;flex-direction:column;gap:16px}
+.is-phone .content{padding:14px 16px 20px;gap:12px}
+.hello h2{font-size:26px}
+.is-phone .hello h2{font-size:22px}
+.hello p{margin:4px 0 0;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+.is-phone .grid2{grid-template-columns:1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.is-phone .card{padding:15px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.big{font-family:var(--font-display);font-size:40px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:16px;font-weight:500;color:var(--muted);margin-left:4px}
+.bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:12px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--amber);border-radius:99px}
+.hint{font-size:13px;color:var(--muted);margin-top:8px}
+.next{background:var(--pine);color:var(--pine-ink);border:0}
+.next .eyebrow{color:inherit;opacity:.75}
+.next h3{font-size:22px;margin-top:6px}
+.next p{margin:6px 0 14px;opacity:.85;font-size:14px}
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:700;background:var(--pine);color:var(--pine-ink)}
+.btn.amber{background:var(--amber);color:var(--amber-ink)}
+.btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface-2);border-radius:12px;padding:12px}
+.stat b{display:block;font-family:var(--font-display);font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+
+/* Dagtijdlijn */
+.tl{position:relative;height:74px;margin-top:14px}
+.tl .track{position:absolute;left:0;right:0;top:26px;height:26px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line)}
+.tl .blk{position:absolute;top:26px;height:26px;border-radius:6px;font-size:10.5px;font-weight:600;padding:5px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tl .blk.meet{background:var(--meet);color:var(--meet-ink)}
+.tl .blk.focus{background:var(--focus);color:var(--muted);border:1px dashed var(--line)}
+.tl .blk.lunch{background:var(--amber-soft);color:var(--ink)}
+.tl .p{position:absolute;top:6px;width:14px;height:14px;margin-left:-7px;border-radius:50%;border:2px solid var(--amber);background:var(--surface)}
+.tl .p.done{background:var(--amber)}
+.tl .p.nextp{box-shadow:0 0 0 4px var(--amber-soft)}
+.tl .h{position:absolute;top:58px;font-size:10.5px;color:var(--muted);transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* Onboarding */
+.onb{flex:1;display:flex;flex-direction:column;padding:40px 56px;gap:18px;overflow-y:auto;max-width:640px;margin:0 auto;width:100%}
+.is-phone .onb{padding:22px 22px 26px}
+.dots{display:flex;gap:6px}
+.dots i{height:6px;flex:1;border-radius:9px;background:var(--line)}
+.dots i.on{background:var(--pine)}
+.onb h2{font-size:30px}
+.is-phone .onb h2{font-size:25px}
+.onb .lead{color:var(--muted);margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 15px;font-weight:600;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--pine);border-color:var(--pine);color:var(--pine-ink)}
+.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+.field select{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.onb .spacer{flex:1}
+.hero-art{border-radius:20px;background:var(--pine-soft);padding:22px;display:flex;flex-direction:column;gap:10px}
+.promise{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.promise b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--pine);color:var(--pine-ink);display:grid;place-items:center;font-size:12px}
+
+/* Schakelaars */
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
+.toggle:last-child{border-bottom:0}
+.toggle div{min-width:0}
+.toggle strong{display:block;font-size:14.5px}
+.toggle span{font-size:13px;color:var(--muted)}
+.sw{flex:none;width:46px;height:28px;border-radius:99px;border:0;background:var(--line);position:relative;padding:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--surface);transition:transform .2s}
+.sw[aria-checked="true"]{background:var(--pine)}
+.sw[aria-checked="true"]::after{transform:translateX(18px)}
+input[type=range]{width:100%;accent-color:var(--pine)}
+
+/* Herinnering */
+.notif{position:absolute;z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 18px 40px -12px rgba(10,30,25,.35);animation:pop .35s ease-out}
+.is-laptop-screen .notif{right:20px;bottom:20px;width:360px}
+.is-phone-screen .notif{left:10px;right:10px;top:40px}
+.notif .who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+.notif .who span{width:20px;height:20px;border-radius:6px;background:var(--pine);color:var(--pine-ink);display:grid;place-items:center}
+.notif h4{margin:10px 0 4px;font-family:var(--font-display);font-size:18px}
+.notif p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.notif .row .btn{padding:9px 12px;font-size:13.5px}
+.toast{position:absolute;z-index:30;left:50%;transform:translateX(-50%);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:13.5px;font-weight:600;max-width:90%;text-align:center;animation:pop .3s ease-out}
+.is-phone-screen .toast{bottom:90px}
+@keyframes pop{from{opacity:.4;transform:translateY(8px)}}
+.toast{animation:none}
+@media (prefers-reduced-motion:reduce){.notif{animation:none}}
+
+/* Oefening */
+.ex{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;padding:28px;background:var(--pine-soft)}
+.ex .area{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pine)}
+.ex h2{font-size:34px}
+.ex p{max-width:440px;margin:0;color:var(--ink)}
+.ring{width:170px;height:170px;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-display);font-size:44px;font-variant-numeric:tabular-nums}
+.exdots{display:flex;gap:6px}
+.exdots i{width:26px;height:6px;border-radius:9px;background:var(--line)}
+.exdots i.on{background:var(--pine)}
+.done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:28px}
+.done h2{font-size:32px}
+.badge{font-family:var(--font-display);font-size:20px;font-weight:700;background:var(--amber-soft);color:var(--ink);border-radius:999px;padding:8px 18px}
+
+/* Voortgang */
+.bars{display:flex;align-items:flex-end;gap:14px;height:150px;margin-top:14px;position:relative;padding-top:10px}
+.bars .goal{position:absolute;left:0;right:0;border-top:2px dashed var(--amber)}
+.bars .goal span{position:absolute;right:0;top:-18px;font-size:11px;color:var(--muted)}
+.bars .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bars .col i{display:block;width:100%;max-width:46px;border-radius:8px 8px 3px 3px;background:var(--pine)}
+.bars .col.today i{background:var(--amber)}
+.bars .col span{font-size:12px;color:var(--muted)}
+.bars .col em{font-style:normal;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Team */
+.lb{display:flex;flex-direction:column}
+.lb .r{display:grid;grid-template-columns:24px 34px 1fr auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.lb .r:last-child{border-bottom:0}
+.lb .r.me{font-weight:700}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--surface-2);border:1px solid var(--line)}
+.r.me .av{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+.mini{font-size:12px;border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 10px;font-weight:600}
+.challenge{background:var(--amber-soft);border-color:transparent}
+.challenge h3{font-size:20px;margin:6px 0}
+
+/* Onderzoekspaneel */
+.panel{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px}
+@media (max-width:1100px){ .panel{position:static} }
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.pcard h3{font-size:16px;margin-bottom:4px}
+.pcard p{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.pbtns{display:flex;flex-direction:column;gap:8px}
+.pbtns .btn{text-align:left;font-size:13.5px}
+.tasks{margin:0;padding-left:20px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.tasks li.ok{color:var(--muted);text-decoration:line-through}
+.log{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border-radius:10px;padding:10px;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:3px}
+.log div{display:grid;grid-template-columns:44px 1fr;gap:8px}
+.log time{color:var(--muted);font-variant-numeric:tabular-nums}
+/* ---------- Beweging & extra navigatie ---------- */
+.btn,.chip,.navbtn,.mini,.sw,.movebtn{transition:transform .12s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease}
+.btn:active,.chip:active,.navbtn:active,.mini:active,.movebtn:active{transform:scale(.95)}
+.btn:hover:not(:disabled){filter:brightness(1.06)}
+.navbtn:hover{background:var(--surface-2)}
+.navbtn[aria-current="page"]:hover{background:var(--pine-soft)}
+
+.enter > *{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.enter > *:nth-child(2){animation-delay:.06s}
+.enter > *:nth-child(3){animation-delay:.12s}
+.enter > *:nth-child(4){animation-delay:.18s}
+.enter > *:nth-child(5){animation-delay:.24s}
+.enter > *:nth-child(n+6){animation-delay:.3s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+
+.movebtn{display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:13px 12px;margin:0 0 14px;
+  background:var(--amber);color:var(--amber-ink);font-weight:700;animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 var(--amber-soft)}50%{box-shadow:0 0 0 7px var(--amber-soft)}}
+.tabs{grid-template-columns:repeat(5,1fr);align-items:end}
+.tabs .movebtn{flex-direction:column;gap:2px;margin:-26px 4px 0;border-radius:20px;padding:12px 4px 9px;font-size:11px}
+.pagehead{display:flex;align-items:center;gap:12px}
+.pagehead .pi{width:42px;height:42px;border-radius:13px;background:var(--pine-soft);color:var(--pine);display:grid;place-items:center;flex:none}
+.is-phone .pagehead .pi{width:36px;height:36px}
+
+.next-top{display:flex;gap:16px;align-items:center;justify-content:space-between}
+.next-top > div:first-child{min-width:0}
+.sit{width:96px;height:96px;flex:none;position:relative}
+.sit svg{width:100%;height:100%;transform:rotate(-90deg)}
+.sit circle{transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)}
+.sit b{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-family:var(--font-display);font-size:24px;line-height:1}
+.sit b small{display:block;font-family:var(--font-body);font-size:10.5px;font-weight:600;opacity:.8;margin-top:2px}
+.next .btn.amber{margin-top:14px}
+
+.tl .p{animation:popin .4s cubic-bezier(.3,1.6,.5,1) both}
+.tl .p.nextp{animation:popin .4s cubic-bezier(.3,1.6,.5,1) both, ping 1.8s ease-out .5s infinite}
+@keyframes popin{from{transform:scale(0)}}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--amber)}100%{box-shadow:0 0 0 10px transparent}}
+.tl .blk{animation:slideR .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes slideR{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+.bars .col i{transform-origin:bottom;animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
+.bars .col:nth-child(3) i{animation-delay:.06s}.bars .col:nth-child(4) i{animation-delay:.12s}
+.bars .col:nth-child(5) i{animation-delay:.18s}.bars .col:nth-child(6) i{animation-delay:.24s}
+@keyframes grow{from{transform:scaleY(0)}}
+
+.is-laptop-screen .notif{animation:inRight .5s cubic-bezier(.3,1.4,.5,1) both}
+.is-phone-screen .notif{animation:inTop .5s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes inRight{from{opacity:0;transform:translateX(60px)}}
+@keyframes inTop{from{opacity:0;transform:translateY(-50px)}}
+.notif .who span{animation:wiggle 1s ease .5s 2}
+@keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+.toast{animation:toastIn .35s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,16px)}}
+
+.ring .prog{transition:stroke-dashoffset 1s linear}
+.figure{width:150px;height:170px}
+.figure *{transform-box:view-box}
+.figure .fg{stroke:var(--pine);stroke-width:7;stroke-linecap:round;fill:none}
+.figure .head{fill:var(--pine)}
+.figure .eye{fill:var(--pine-soft)}
+.figure .floor{stroke:var(--line);stroke-width:4;stroke-linecap:round}
+.anim-nek .head-g{transform-origin:60px 46px;animation:nek 3s ease-in-out infinite}
+@keyframes nek{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}}
+.anim-schouders .arm-l{transform-origin:60px 56px;animation:armL 2.4s ease-in-out infinite}
+.anim-schouders .arm-r{transform-origin:60px 56px;animation:armR 2.4s ease-in-out infinite}
+@keyframes armL{0%,100%{transform:rotate(0)}50%{transform:rotate(55deg)}}
+@keyframes armR{0%,100%{transform:rotate(0)}50%{transform:rotate(-55deg)}}
+.anim-rug .upper{transform-origin:60px 100px;animation:twist 3.2s ease-in-out infinite}
+@keyframes twist{0%,100%{transform:rotate(-12deg) skewY(-3deg)}50%{transform:rotate(12deg) skewY(3deg)}}
+.anim-ogen .eye{transform-origin:center;animation:blink 2.4s infinite}
+.anim-ogen .head-g{transform-origin:60px 46px;animation:look 4s ease-in-out infinite}
+@keyframes blink{0%,44%,52%,100%{transform:scaleY(1)}48%{transform:scaleY(.1)}}
+@keyframes look{0%,100%{transform:translateX(-3px)}50%{transform:translateX(4px)}}
+.anim-benen .body-all{animation:toes 1.6s ease-in-out infinite}
+@keyframes toes{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.anim-wandel .body-all{animation:bob .8s ease-in-out infinite}
+.anim-wandel .leg-l{transform-origin:60px 100px;animation:swing .8s ease-in-out infinite}
+.anim-wandel .leg-r{transform-origin:60px 100px;animation:swing .8s ease-in-out infinite reverse}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes swing{0%,100%{transform:rotate(18deg)}50%{transform:rotate(-18deg)}}
+.ex.paused .figure *{animation-play-state:paused}
+
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;animation:fall 2.2s cubic-bezier(.3,.6,.6,1) forwards}
+@keyframes fall{to{transform:translateY(820px) rotate(720deg);opacity:.2}}
+.badge.bounce{animation:bounceIn .6s cubic-bezier(.3,1.7,.5,1) both}
+@keyframes bounceIn{from{transform:scale(.3);opacity:0}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+.swatches{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.swatch{width:40px;height:40px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--line);padding:0;transition:transform .15s, box-shadow .2s}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink);transform:scale(1.08)}
+.swatch:active{transform:scale(.92)}
+.preview-row{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px;color:var(--muted)}
+.preview-row i{width:46px;height:12px;border-radius:99px;background:var(--pine)}
+.preview-row i+i{background:var(--pine-soft);width:30px}
+.screen{transition:background-color .4s ease}
+.copyarea{width:100%;height:80px;font-family:var(--mono);font-size:11px;margin-top:8px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+
+/* Proefpersoonversie: app vult het hele scherm, geen toestelkader */
+html,body{height:100%}
+body{padding:0!important}
+.wrap{display:block;height:100%;max-width:none}
+.stage{height:100%;overflow:hidden;padding:0;display:block}
+.phone,.laptop{width:100%;height:100%;padding:0;background:none;border-radius:0}
+.phone{max-width:430px;margin:0 auto}
+@media (min-width:500px){ .stage:has(.phone){background:var(--frame)} .phone{box-shadow:0 0 0 1px var(--line)} }
+.laptop .bezel{padding:0;background:none;border-radius:0;height:100%}
+.laptop .base,.statusbar{display:none}
+.phone .screen,.laptop .screen{height:100%;border-radius:0}
+.is-laptop .content{padding:32px 40px 40px}
+.is-laptop .content > *{max-width:1000px}
+[hidden]{display:none!important}
+.secret{position:fixed;inset:0;z-index:100;background:rgba(10,20,18,.55);display:flex;justify-content:flex-end;padding:16px;overflow-y:auto}
+.secret .panel{position:static;width:min(360px,100%)}
+</style>
+</head>
+<body>
+
+
+
+<main class="wrap">
+  <div class="stage" id="stage"></div>
+
+  <div class="secret" id="secret" hidden><aside class="panel" aria-label="Onderzoekerspaneel"><div class="pcard"><div class="row" style="justify-content:space-between"><h3>Onderzoeker</h3><button class="btn ghost" id="close-secret">Sluiten</button></div><p>Alleen jij ziet dit. Open met 5 tikken op het icoon bovenaan een pagina, of met Shift + L.</p><div class="eyebrow" style="margin-bottom:8px">Toon de app als</div><div class="chips" id="devchips"><button class="chip" data-dv="auto">Automatisch</button><button class="chip" data-dv="laptop">Laptop</button><button class="chip" data-dv="phone">Gsm</button></div></div>
+    <div class="pcard">
+      <h3>Testopdrachten</h3>
+      <p>Geef deze opdrachten één voor één aan de proefpersoon. Ze vinken vanzelf af.</p>
+      <ol class="tasks" id="tasks"></ol>
+    </div>
+    <div class="pcard">
+      <h3>Bediening onderzoeker</h3>
+      <p>Simuleer wat de app tijdens een werkdag zou doen.</p>
+      <div class="pbtns">
+        <button class="btn amber" id="trig-rem">Stuur herinnering (meeting net gedaan)</button>
+        <button class="btn ghost" id="trig-focus">Simuleer focusmoment (herinnering wacht)</button>
+        <button class="btn ghost" id="reset">Prototype opnieuw starten</button>
+      </div>
+    </div>
+    <div class="pcard">
+      <h3>Kliklog <span id="logcount" style="color:var(--muted);font-weight:500"></span></h3>
+      <p>Elke klik wordt bijgehouden met tijd. Dit is je ruwe data.</p>
+      <div class="log" id="log"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" id="copy-log">Kopieer als CSV</button>
+      </div>
+      <textarea class="copyarea" id="csv" hidden readonly aria-label="Kliklog als CSV"></textarea>
+    </div>
+  </aside></div>
+</main>
+
+<script>
+const THEME={
+  light:{"--bg":"#E8EEEB","--surface":"#FFFFFF","--surface-2":"#F2F6F4","--ink":"#14302A","--muted":"#5A6E68","--line":"#D3DFDA","--amber":"#E3A12A","--amber-soft":"#FAEED3","--amber-ink":"#3D2A05","--meet":"#C9D6E6","--meet-ink":"#203247","--focus":"#E4ECE8","color-scheme":"light"},
+  dark:{"--bg":"#0F1614","--surface":"#18211F","--surface-2":"#1F2A27","--ink":"#E3ECE8","--muted":"#94A6A0","--line":"#2C3A36","--amber":"#F0B547","--amber-soft":"#3A2E14","--amber-ink":"#2A1C02","--meet":"#2A3A50","--meet-ink":"#CFDCEC","--focus":"#24312D","color-scheme":"dark"}
+};
+const ACCENT={
+  groen:{label:"Groen", light:["#1F5A4E","#DCEBE5","#FFFFFF"], dark:["#5FB39E","#1F3A33","#0C1F1A"]},
+  blauw:{label:"Blauw", light:["#2456A6","#DDE7F6","#FFFFFF"], dark:["#7AA7EE","#1E2C45","#0B1730"]},
+  koraal:{label:"Koraal", light:["#B5483B","#F6E0DB","#FFFFFF"], dark:["#EE8E80","#3D2420","#2A0D08"]},
+  paars:{label:"Paars", light:["#5B3FA0","#E7E0F5","#FFFFFF"], dark:["#A893E6","#2C2545","#1A1033"]},
+  grafiet:{label:"Grafiet", light:["#2F3A44","#E1E5E9","#FFFFFF"], dark:["#B9C4CE","#2A3138","#12171C"]}
+};
+function appTheme(){
+  const sys = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+  const mode = S.set.theme==="donker" ? "dark" : S.set.theme==="licht" ? "light" : (sys?"dark":"light");
+  const a=ACCENT[S.set.color][mode];
+  const vars={...THEME[mode], "--pine":a[0], "--pine-soft":a[1], "--pine-ink":a[2]};
+  return Object.entries(vars).map(([k,v])=>`${k}:${v}`).join(";");
+}
+const EX = {
+  nek:{name:"Nekrol", area:"Nek", text:"Laat je kin rustig naar je borst zakken en rol je hoofd langzaam van links naar rechts. Adem rustig door."},
+  schouders:{name:"Schouders open", area:"Schouders", text:"Sta recht, vouw je handen achter je rug en trek je schouderbladen zacht naar elkaar. Hou even vast."},
+  rug:{name:"Rugdraai", area:"Rug", text:"Zit rechtop, leg je hand op de rugleuning en draai je bovenlichaam rustig mee. Wissel halverwege van kant."},
+  ogen:{name:"20-20-20", area:"Ogen", text:"Kijk weg van je scherm naar iets op minstens 6 meter afstand. Knipper een paar keer bewust."},
+  benen:{name:"Kuitheffen", area:"Benen", text:"Sta achter je stoel, hou de leuning vast en kom 15 keer rustig op je tenen."},
+  wandel:{name:"Rondje huis", area:"Heel je lichaam", text:"Wandel naar de keuken en terug, of loop één keer de trap op en af. Vul meteen je glas water bij."}
+};
+const NAV = [
+  {id:"home", label:"Vandaag", icon:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'},
+  {id:"stats", label:"Voortgang", icon:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'},
+  {id:"team", label:"Team", icon:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.6c2.4.2 4 1.9 4.5 4.9"/>'},
+  {id:"settings", label:"Instellingen", icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>'}
+];
+const TASKS = [
+  {id:"onb", text:"Stel de app in volgens je eigen werkdag."},
+  {id:"read", text:"Zoek uit wanneer je volgende bewegingspauze is."},
+  {id:"rem", text:"Reageer op de herinnering die je krijgt."},
+  {id:"break", text:"Doe een volledige bewegingspauze."},
+  {id:"team", text:"Doe mee aan de challenge van je team."},
+  {id:"set", text:"Zorg dat je minder vaak herinneringen krijgt."}
+];
+
+function fresh(){
+  return {
+    device: S0device(), screen:"onb", step:0,
+    prefs:{days:["ma","di","do","vr"], start:"08:30", end:"17:00", complaints:["nek","rug"], outlook:false, teams:false},
+    set:{smart:true, interval:60, len:2, quiet:true, share:true, teamsStatus:true, theme:"systeem", color:"groen"},
+    sat:47, streak:4, points:120, moveMin:6, joined:false,
+    plan:[{t:9.25,done:true},{t:9.9,done:true},{t:11.03,done:false},{t:13.5,done:false},{t:14.6,done:false},{t:15.75,done:false}],
+    session:null, notif:null, toast:null, feel:null,
+    tasks:{}, log:[], t0:Date.now()
+  };
+}
+let forced=null;
+function readHash(){ const h=(location.hash||"").slice(1).toLowerCase(); forced = h==="gsm"?"phone":h==="laptop"?"laptop":forced; }
+function S0device(){ return forced || (window.innerWidth<760 ? "phone" : "laptop"); }
+readHash();
+let S; S = fresh();
+let timer=null, toastTimer=null;
+
+const $ = s => document.querySelector(s);
+const hhmm = h => { const H=Math.floor(h), M=Math.round((h-H)*60); return String(H).padStart(2,"0")+":"+String(M).padStart(2,"0"); };
+const donePauses = () => S.plan.filter(p=>p.done).length;
+const nextPause = () => S.plan.find(p=>!p.done);
+
+function log(action){
+  const s=Math.round((Date.now()-S.t0)/1000);
+  const t=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+  S.log.push({t, screen:S.screen, device:S.device, action});
+  renderPanel();
+}
+function tick(id){ if(!S.tasks[id]){ S.tasks[id]=true; log("OPDRACHT VOLTOOID: "+TASKS.find(t=>t.id===id).text); } }
+function toast(msg){ S.toast=msg; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{S.toast=null; render();},2600); }
+
+function icon(paths,size=20){ return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`; }
+const markSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 15c3-6 6-6 9 0s6 6 9 0"/></svg>';
+const sw = (key,on,label) => `<button class="sw" role="switch" aria-checked="${on}" aria-label="${label}" data-act="sw:${key}"></button>`;
+
+/* ---------- Schermen ---------- */
+function onboarding(){
+  const st=S.step, P=S.prefs;
+  const dots=`<div class="dots">${[0,1,2,3].map(i=>`<i class="${i<=st?"on":""}"></i>`).join("")}</div>`;
+  let body="";
+  if(st===0){
+    body=`<div class="eyebrow">Welkom</div>
+    <h2>Meer bewegen, zonder je flow te verliezen.</h2>
+    <p class="lead">Actif Flow plant korte bewegingspauzes op de momenten dat het jou past: na een meeting of als je een taak afrondt.</p>
+    <div class="hero-art">
+      <div class="promise"><b>1</b><span>Herinneringen die wachten tot je klaar bent met je taak</span></div>
+      <div class="promise"><b>2</b><span>Oefeningen van 1 tot 5 minuten, gewoon aan je bureau</span></div>
+      <div class="promise"><b>3</b><span>Samen met collega's je reeks volhouden</span></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn wide" data-act="next">Aan de slag</button>`;
+  } else if(st===1){
+    const days=["ma","di","wo","do","vr"];
+    const opts=(sel,list)=>list.map(v=>`<option ${v===sel?"selected":""}>${v}</option>`).join("");
+    body=`<div class="eyebrow">Stap 1 van 3</div>
+    <h2>Wanneer werk je thuis?</h2>
+    <p class="lead">Zo plannen we pauzes enkel op je thuiswerkdagen.</p>
+    <div class="chips">${days.map(d=>`<button class="chip" aria-pressed="${P.days.includes(d)}" data-act="day:${d}">${d}</button>`).join("")}</div>
+    <div class="twocol">
+      <label class="field">Start<select id="sel-start" data-sel="start">${opts(P.start,["07:30","08:00","08:30","09:00","09:30"])}</select></label>
+      <label class="field">Einde<select id="sel-end" data-sel="end">${opts(P.end,["16:00","16:30","17:00","17:30","18:00"])}</select></label>
+    </div>
+    <div class="spacer"></div>
+    <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="next" ${P.days.length?"":"disabled"}>Volgende</button></div>`;
+  } else if(st===2){
+    const c=[["nek","Nek"],["schouders","Schouders"],["rug","Rug"],["ogen","Vermoeide ogen"],["benen","Stijve benen"],["wandel","Gewoon meer bewegen"]];
+    body=`<div class="eyebrow">Stap 2 van 3</div>
+    <h2>Waar voel je het lange zitten?</h2>
+    <p class="lead">We kiezen oefeningen die daarbij passen. Kies er zoveel je wil.</p>
+    <div class="chips">${c.map(([k,l])=>`<button class="chip" aria-pressed="${P.complaints.includes(k)}" data-act="comp:${k}">${l}</button>`).join("")}</div>
+    <div class="spacer"></div>
+    <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="next">Volgende</button></div>`;
+  } else {
+    body=`<div class="eyebrow">Stap 3 van 3</div>
+    <h2>Koppel je agenda</h2>
+    <p class="lead">Dan weten we wanneer je in een meeting zit en storen we je daar nooit.</p>
+    <div class="card" style="padding:4px 16px">
+      <div class="toggle"><div><strong>Outlook-agenda</strong><span>We lezen enkel wanneer je bezet bent</span></div>${sw("outlook",P.outlook,"Outlook-agenda koppelen")}</div>
+      <div class="toggle"><div><strong>Teams-status op "Beschikbaar" houden</strong><span>Tijdens een korte pauze lijkt je niet afwezig</span></div>${sw("teams",P.teams,"Teams-status beschikbaar houden")}</div>
+    </div>
+    <p class="hint">Je kan dit later altijd aanpassen bij Instellingen.</p>
+    <div class="spacer"></div>
+    <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="finish">Klaar, start mijn dag</button></div>`;
+  }
+  return `<div class="onb">${dots}${body}</div>`;
+}
+
+function timeline(){
+  const s=8.5, e=17, pct=h=>((h-s)/(e-s)*100).toFixed(2)+"%", w=(a,b)=>((b-a)/(e-s)*100).toFixed(2)+"%";
+  const blocks=[[8.5,10,"focus","Rapport schrijven"],[10,11,"meet","Weekoverleg"],[11.25,12.5,"focus","Mails & offerte"],[12.5,13.25,"lunch","Lunch"],[14,14.5,"meet","Klantcall"],[14.6,16.5,"focus","Analyse Q4"]];
+  const np=nextPause();
+  return `<div class="tl" role="img" aria-label="Tijdlijn van je werkdag met meetings en geplande pauzes">
+    <div class="track"></div>
+    ${blocks.map(b=>`<div class="blk ${b[2]}" style="left:${pct(b[0])};width:${w(b[0],b[1])}" title="${b[3]}">${b[3]}</div>`).join("")}
+    ${S.plan.map(p=>`<div class="p ${p.done?"done":""} ${p===np?"nextp":""}" style="left:${pct(p.t)}" title="Pauze ${hhmm(p.t)}"></div>`).join("")}
+    ${[9,11,13,15,17].map(h=>`<div class="h" style="left:${pct(h)}">${h}:00</div>`).join("")}
+  </div>
+  <div class="legend"><span><i style="background:var(--amber)"></i>Pauze gedaan</span><span><i style="border:2px solid var(--amber);background:var(--surface)"></i>Gepland</span><span><i style="background:var(--meet)"></i>Meeting</span><span><i style="background:var(--focus);border:1px dashed var(--line)"></i>Focus</span></div>`;
+}
+
+function head(icn,title,sub){ return `<div class="hello pagehead"><span class="pi">${icon(icn,22)}</span><div><h2>${title}</h2><p>${sub}</p></div></div>`; }
+
+function home(){
+  const np=nextPause(), dp=donePauses(), total=S.plan.length;
+  const reason = np ? (np.t===11.03?"Na je Weekoverleg, zodat je niet gestoord wordt.":np.t===13.5?"Na je lunch, voor je volgende focusblok.":np.t===14.6?"Meteen na je klantcall.":"Halverwege je focusblok Analyse Q4.") : "";
+  const C=2*Math.PI*40, f=Math.min(1,S.sat/S.set.interval);
+  return `
+  ${head(NAV[0].icon,"Goeiemorgen, Jarne",`Donderdag · thuiswerkdag · ${S.prefs.start} tot ${S.prefs.end}`)}
+  <div class="card next">
+    <div class="next-top">
+      <div>
+        <div class="eyebrow">Volgende bewegingspauze</div>
+        ${np?`<h3>${hhmm(np.t)} · ${S.set.len} minuten</h3><p style="margin-bottom:0">${reason}</p>`
+        :`<h3>Alle pauzes gedaan</h3><p style="margin-bottom:0">Sterk volgehouden vandaag.</p>`}
+      </div>
+      <div class="sit" role="img" aria-label="${S.sat} van ${S.set.interval} minuten gezeten">
+        <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="9"/>
+        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--amber)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-f)}"/></svg>
+        <b>${S.sat}<small>min gezeten</small></b>
+      </div>
+    </div>
+    <button class="btn amber wide" data-act="startnow">Nu al bewegen</button>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><div class="eyebrow">Je dag</div><span class="hint" style="margin:0">${S.prefs.outlook?"Agenda gekoppeld":"Voorbeeldagenda"}</span></div>
+    ${timeline()}
+  </div>
+  <div class="stats3">
+    <div class="stat"><b>${dp}/${total}</b><span>pauzes vandaag</span></div>
+    <div class="stat"><b>${S.moveMin}</b><span>beweegminuten</span></div>
+    <div class="stat"><b>${S.streak} dagen</b><span>reeks</span></div>
+  </div>`;
+}
+
+function stats(){
+  const days=[["ma",5],["di",3],["wo",0],["do",donePauses()],["vr",null]];
+  const max=7, goal=6;
+  return `${head(NAV[1].icon,"Je voortgang",`Deze week · doel ${goal} pauzes per thuiswerkdag`)}
+  <div class="card">
+    <div class="eyebrow">Bewegingspauzes per dag</div>
+    <div class="bars">
+      <div class="goal" style="bottom:${24+goal/max*120}px"><span>doel ${goal}</span></div>
+      ${days.map(([d,v])=>`<div class="col ${d==="do"?"today":""}"><em>${v===null?"":v===0?"kantoor":v}</em><i style="height:${v?Math.max(4,v/max*120):0}px"></i><span>${d}</span></div>`).join("")}
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="eyebrow">Langst aan één stuk gezeten</div><div class="big" style="margin-top:8px">1u 52<small>di</small></div><div class="hint">Dinsdag zat je bijna 2 uur door tijdens je deadline. Op zo'n dagen helpen kortere pauzes van 1 minuut.</div></div>
+    <div class="card"><div class="eyebrow">Hoe voelde je je na een pauze?</div>
+      <div class="stats3" style="margin-top:10px">
+        <div class="stat"><b>${8+(S.feel==="Beter"?1:0)}</b><span>beter</span></div>
+        <div class="stat"><b>${3+(S.feel==="Hetzelfde"?1:0)}</b><span>hetzelfde</span></div>
+        <div class="stat"><b>${0+(S.feel==="Slechter"?1:0)}</b><span>slechter</span></div>
+      </div></div>
+  </div>
+  <div class="card"><div class="eyebrow">Punten</div><div class="big" style="margin-top:8px">${S.points}<small>punten</small></div><div class="hint">Nog ${200-S.points>0?200-S.points:0} punten tot de badge "Flow-meester".</div></div>`;
+}
+
+function team(){
+  const people=[["Sara","SV",19],["Tom","TD",16],["Jij","JH",11+(donePauses()-2)],["Lien","LM",9],["Pieter","PJ",6]].sort((a,b)=>b[2]-a[2]);
+  return `${head(NAV[2].icon,"Team Marketing","5 collega's werken vandaag thuis")}
+  <div class="card challenge">
+    <div class="eyebrow">Challenge van deze week</div>
+    <h3>De 5-pauzes-week</h3>
+    <p style="margin:0 0 12px;font-size:14px">Neem elke thuiswerkdag minstens 5 bewegingspauzes. Lukt het het hele team, dan trakteert de teamlead op vrijdag.</p>
+    ${S.joined?`<div class="row"><span class="badge" style="font-size:15px">Je doet mee</span><span class="hint" style="margin:0">4 van de 5 collega's doen mee</span></div>`
+    :`<div class="row"><button class="btn" data-act="join">Doe mee</button><span class="hint" style="margin:0">3 van de 5 collega's doen al mee</span></div>`}
+  </div>
+  <div class="card">
+    <div class="eyebrow">Pauzes deze week</div>
+    <div class="lb">${people.map((p,i)=>`<div class="r ${p[0]==="Jij"?"me":""}"><span>${i+1}</span><span class="av">${p[1]}</span><span>${p[0]}</span><span style="font-variant-numeric:tabular-nums">${p[2]}</span>${p[0]==="Jij"?"<span></span>":`<button class="mini" data-act="nudge:${p[0]}">Duwtje</button>`}</div>`).join("")}</div>
+  </div>
+  <div class="card" style="padding:4px 16px"><div class="toggle"><div><strong>Deel mijn voortgang met het team</strong><span>Collega's zien enkel je aantal pauzes, nooit je agenda</span></div>${sw("share",S.set.share,"Voortgang delen")}</div></div>`;
+}
+
+function settings(){
+  return `${head(NAV[3].icon,"Instellingen","Bepaal zelf hoe vaak en wanneer je een herinnering krijgt")}
+  <div class="card">
+    <div class="eyebrow">Weergave</div>
+    <div class="chips" style="margin-top:10px">${["licht","donker","systeem"].map(t=>`<button class="chip" aria-pressed="${S.set.theme===t}" data-act="theme:${t}">${t==="licht"?"Licht":t==="donker"?"Donker":"Zoals mijn toestel"}</button>`).join("")}</div>
+    <div class="eyebrow" style="margin-top:16px">Kleur van de app</div>
+    <div class="swatches">${Object.entries(ACCENT).map(([k,a])=>`<button class="swatch" style="background:${a.light[0]}" aria-pressed="${S.set.color===k}" aria-label="${a.label}" title="${a.label}" data-act="color:${k}"></button>`).join("")}</div>
+    <div class="preview-row"><i></i><i></i><span>${ACCENT[S.set.color].label} · ${S.set.theme==="systeem"?"volgt je toestel":S.set.theme}</span></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Herinner me na</div>
+    <div class="row" style="justify-content:space-between;margin-top:6px"><strong id="intlabel">${S.set.interval} minuten zitten</strong></div>
+    <input type="range" id="interval" min="30" max="120" step="15" value="${S.set.interval}" aria-label="Minuten zitten voor een herinnering">
+    <div class="row" style="justify-content:space-between;font-size:12px;color:var(--muted)"><span>30 min</span><span>2 uur</span></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Lengte van een pauze</div>
+    <div class="chips" style="margin-top:10px">${[1,2,5].map(n=>`<button class="chip" aria-pressed="${S.set.len===n}" data-act="len:${n}">${n} min</button>`).join("")}</div>
+  </div>
+  <div class="card" style="padding:4px 16px">
+    <div class="toggle"><div><strong>Slimme timing</strong><span>Wacht tot je meeting of taak klaar is</span></div>${sw("smart",S.set.smart,"Slimme timing")}</div>
+    <div class="toggle"><div><strong>Outlook-agenda</strong><span>Nooit herinneringen tijdens meetings</span></div>${sw("outlook",S.prefs.outlook,"Outlook-agenda")}</div>
+    <div class="toggle"><div><strong>Teams-status op "Beschikbaar"</strong><span>Tijdens pauzes van maximaal 5 minuten</span></div>${sw("teams",S.prefs.teams,"Teams-status")}</div>
+    <div class="toggle"><div><strong>Stille uren</strong><span>Geen herinneringen tijdens je focusblokken voor 10:00</span></div>${sw("quiet",S.set.quiet,"Stille uren")}</div>
+  </div>`;
+}
+
+function figure(key){
+  return `<svg class="figure anim-${key}" viewBox="0 0 120 150" aria-hidden="true">
+    <line class="floor" x1="20" y1="142" x2="100" y2="142"/>
+    <g class="body-all">
+      <g class="upper">
+        <g class="head-g"><circle class="head" cx="60" cy="28" r="15"/><ellipse class="eye" cx="54" cy="27" rx="2.4" ry="3"/><ellipse class="eye" cx="66" cy="27" rx="2.4" ry="3"/></g>
+        <line class="fg" x1="60" y1="46" x2="60" y2="100"/>
+        <line class="fg arm-l" x1="60" y1="56" x2="38" y2="84"/>
+        <line class="fg arm-r" x1="60" y1="56" x2="82" y2="84"/>
+      </g>
+      <line class="fg leg-l" x1="60" y1="100" x2="46" y2="138"/>
+      <line class="fg leg-r" x1="60" y1="100" x2="74" y2="138"/>
+    </g>
+  </svg>`;
+}
+function exercise(){
+  const se=S.session, key=se.list[se.i], ex=EX[key], C=2*Math.PI*70, frac=se.left/se.dur;
+  return `<div class="ex ${se.paused?"paused":""}">
+    <div class="exdots">${se.list.map((_,i)=>`<i class="${i<=se.i?"on":""}"></i>`).join("")}</div>
+    <div class="area">Oefening ${se.i+1} van ${se.list.length} · ${ex.area}</div>
+    <h2>${ex.name}</h2>
+    <div class="row" style="justify-content:center;gap:24px">
+      ${figure(key)}
+      <div class="ring"><svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="70" fill="none" stroke="var(--line)" stroke-width="10"/><circle class="prog" cx="80" cy="80" r="70" fill="none" stroke="var(--pine)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-frac)}"/></svg><b>${se.left}</b></div>
+    </div>
+    <p>${ex.text}</p>
+    <div class="row" style="justify-content:center">
+      <button class="btn ghost" data-act="expause">${se.paused?"Verder":"Pauzeer"}</button>
+      <button class="btn" data-act="exnext">${se.i<se.list.length-1?"Volgende oefening":"Afronden"}</button>
+    </div>
+    <button class="mini" data-act="exstop">Stoppen en terug naar werk</button>
+  </div>`;
+}
+function updateTimer(){
+  const se=S.session, C=2*Math.PI*70;
+  const pr=document.querySelector(".ring .prog"), num=document.querySelector(".ring b");
+  if(pr) pr.setAttribute("stroke-dashoffset", C*(1-se.left/se.dur));
+  if(num) num.textContent=se.left;
+}
+
+function confetti(){
+  const cols=["var(--amber)","var(--pine)","var(--meet)","var(--amber-soft)"];
+  return `<div class="confetti" aria-hidden="true">${Array.from({length:34},(_,i)=>`<i style="left:${(i*97)%100}%;background:${cols[i%4]};animation-delay:${(i%9)*0.07}s;transform:rotate(${i*37}deg)"></i>`).join("")}</div>`;
+}
+function done(){
+  return `<div class="done" style="position:relative">
+    ${S._burst?confetti():""}<div class="badge bounce">+15 punten</div>
+    <h2>Lekker bezig!</h2>
+    <p style="margin:0;color:var(--muted);max-width:380px">Je reeks staat op ${S.streak} dagen. Je volgende pauze is ${nextPause()?"om "+hhmm(nextPause().t):"morgen"}.</p>
+    <div class="card" style="width:100%;max-width:420px">
+      <div class="eyebrow">Hoe voel je je nu?</div>
+      <div class="chips" style="margin-top:10px;justify-content:center">${["Beter","Hetzelfde","Slechter"].map(f=>`<button class="chip" aria-pressed="${S.feel===f}" data-act="feel:${f}">${f}</button>`).join("")}</div>
+    </div>
+    <button class="btn" data-act="backwork">Terug naar mijn werk</button>
+  </div>`;
+}
+
+function notification(){
+  if(!S.notif) return "";
+  return `<div class="notif" role="alertdialog" aria-label="Herinnering van Actif Flow">
+    <div class="who"><span>${markSvg}</span>Actif Flow · nu</div>
+    <h4>Weekoverleg is afgelopen</h4>
+    <p>Je zit al ${S.sat} minuten. Zin in ${S.set.len} minuten voor je nek en rug, voor je aan je mails begint?</p>
+    <div class="row">
+      <button class="btn amber" data-act="rem:start">Start nu</button>
+      <button class="btn ghost" data-act="rem:task">Na deze taak</button>
+      <button class="btn ghost" data-act="rem:15">Over 15 min</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Render ---------- */
+function render(){
+  const isPhone=S.device==="phone";
+  const scr=S.screen;
+  const enter = (S._last!==scr || S._lastDev!==S.device) ? "enter" : "";
+  S._last=scr; S._lastDev=S.device;
+  let inner;
+  if(scr==="onb") inner=onboarding().replace('class="onb"',`class="onb ${S._stepAnim?"enter":""}"`);
+  else if(scr==="exercise") inner=exercise().replace('class="ex',`class="${S._exAnim?"enter ":""}ex`);
+  else if(scr==="done") inner=done();
+  else {
+    const page={home,stats,team,settings}[scr]();
+    const nb=n=>`<button class="navbtn" data-act="go:${n.id}" ${scr===n.id?'aria-current="page"':""}>${icon(n.icon)}<span>${n.label}</span></button>`;
+    const move=`<button class="movebtn" data-act="startnow">${icon('<circle cx="13" cy="4" r="2"/><path d="M8 21l3-6 3 3v3M7 12l3-4 4 1 3 3M10 8l1 7"/>',20)}<span>Beweeg nu</span></button>`;
+    inner = isPhone
+      ? `<div class="content ${enter}">${page}</div><nav class="tabs" aria-label="Hoofdmenu">${nb(NAV[0])}${nb(NAV[1])}${move}${nb(NAV[2])}${nb(NAV[3])}</nav>`
+      : `<nav class="side" aria-label="Hoofdmenu"><div class="mark"><span>${markSvg}</span>Actif Flow</div>${move}${NAV.map(nb).join("")}<div class="foot">Prototype · voorbeelddata</div></nav><div class="content ${enter}">${page}</div>`;
+  }
+  const appCls = "app "+(isPhone?"is-phone":"is-laptop");
+  const screenHtml = `<div class="screen ${isPhone?"is-phone-screen":"is-laptop-screen"}" style="${appTheme()}">
+      ${isPhone?`<div class="statusbar"><span>10:58</span><span>5G ▮▮▮</span></div>`:""}
+      <div class="${appCls}">${inner}</div>
+      ${notification()}
+      ${S.toast?`<div class="toast" role="status">${S.toast}</div>`:""}
+    </div>`;
+  const stage=$("#stage"), keepScroll = stage.querySelector(".content")?.scrollTop||0;
+  stage.innerHTML = isPhone
+    ? `<div class="phone">${screenHtml}</div>`
+    : `<div class="laptop"><div class="bezel">${screenHtml}</div><div class="base"></div></div>`;
+  const c=stage.querySelector(".content"); if(c && S._keep) c.scrollTop=keepScroll; S._keep=false;
+  S._burst=false; S._stepAnim=false; S._exAnim=false;
+  renderPanel();
+}
+function renderPanel(){
+  $("#tasks").innerHTML = TASKS.map(t=>`<li class="${S.tasks[t.id]?"ok":""}">${t.text}</li>`).join("");
+  $("#log").innerHTML = S.log.length ? S.log.slice().reverse().map(l=>`<div><time>${l.t}</time><span>${l.action}</span></div>`).join("") : `<div><time>--:--</time><span>Nog geen kliks</span></div>`;
+  $("#logcount").textContent = `(${S.log.length})`;
+}
+
+/* ---------- Pauzesessie ---------- */
+function startSession(source){
+  S.notif=null;
+  let list=S.prefs.complaints.filter(k=>EX[k]);
+  if(!list.length) list=["nek","schouders","benen"];
+  const n = S.set.len===1?2:S.set.len===2?3:5;
+  const pool=[...list, ...["schouders","benen","wandel","ogen","nek","rug"].filter(k=>!list.includes(k))];
+  list=pool.slice(0,n);
+  const dur = S.set.len===1?25:S.set.len===2?35:55;
+  S.session={list, i:0, dur, left:dur, paused:false, source}; S._exAnim=true;
+  S.screen="exercise";
+  log(`Pauze gestart (${source}) · ${list.map(k=>EX[k].name).join(", ")}`);
+  runTimer(); render();
+}
+function runTimer(){
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    const se=S.session; if(!se||S.screen!=="exercise"){clearInterval(timer);return;}
+    if(se.paused) return;
+    se.left--;
+    if(se.left<=0){ if(se.i<se.list.length-1){ se.i++; se.left=se.dur; S._exAnim=true; log("Automatisch naar volgende oefening"); render(); } else { finishSession(true); } return; }
+    updateTimer();
+  },1000);
+}
+function finishSession(full){
+  clearInterval(timer);
+  const np=nextPause(); if(np) np.done=true;
+  S.sat=0; S.points+=15; S.moveMin+=S.set.len; S.feel=null;
+  S.screen="done"; S.session=null; S._burst=true;
+  log(full?"Pauze volledig afgerond":"Pauze afgerond via knop");
+  tick("break"); render();
+}
+
+/* ---------- Interactie ---------- */
+document.addEventListener("click", e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const [a,v]=b.dataset.act.split(":");
+  switch(a){
+    case "next": S.step++; S._stepAnim=true; log("Onboarding: volgende (stap "+S.step+")"); break;
+    case "back": S.step--; S._stepAnim=true; log("Onboarding: terug"); break;
+    case "day": { const d=S.prefs.days; d.includes(v)?d.splice(d.indexOf(v),1):d.push(v); log("Thuiswerkdag "+v+" "+(d.includes(v)?"aan":"uit")); break; }
+    case "comp": { const c=S.prefs.complaints; c.includes(v)?c.splice(c.indexOf(v),1):c.push(v); log("Klacht "+v+" "+(c.includes(v)?"gekozen":"weg")); break; }
+    case "finish": S.screen="home"; log(`Onboarding klaar · dagen ${S.prefs.days.join("/")} · klachten ${S.prefs.complaints.join("/")||"geen"} · Outlook ${S.prefs.outlook?"ja":"nee"} · Teams ${S.prefs.teams?"ja":"nee"}`); tick("onb"); scheduleReminder(25000); break;
+    case "go": S.screen=v; log("Naar scherm "+NAV.find(n=>n.id===v).label); if(v==="home"&&S.tasks.onb){} break;
+    case "sw": {
+      if(v==="outlook"||v==="teams"){ S.prefs[v]=!S.prefs[v]; log(`${v==="outlook"?"Outlook-agenda":"Teams-status"} ${S.prefs[v]?"aan":"uit"}`); }
+      else { S.set[v]=!S.set[v]; log(`Instelling ${v} ${S.set[v]?"aan":"uit"}`); if(v==="smart"&&S.set[v]===false) tick("set"); }
+      S._keep=true; break; }
+    case "theme": S.set.theme=v; log("Thema: "+v); S._keep=true; break;
+    case "color": S.set.color=v; log("Kleur: "+v); S._keep=true; break;
+    case "len": S.set.len=+v; log("Pauzelengte "+v+" min"); S._keep=true; break;
+    case "startnow": log("Klik 'Nu al bewegen' op Vandaag"); tick("read"); startSession("zelf gestart"); return;
+    case "rem":
+      if(v==="start"){ log("Herinnering: Start nu"); tick("rem"); startSession("herinnering"); return; }
+      S.notif=null;
+      if(v==="task"){ log("Herinnering: Na deze taak"); toast("Oké, we wachten tot je je mails afrondt."); scheduleReminder(35000); }
+      else { log("Herinnering: Over 15 min"); const np=nextPause(); if(np) np.t+=0.25; toast("Uitgesteld tot "+hhmm(nextPause().t)+"."); scheduleReminder(35000); }
+      tick("rem"); break;
+    case "expause": S.session.paused=!S.session.paused; log(S.session.paused?"Oefening gepauzeerd":"Oefening hervat"); break;
+    case "exnext": if(S.session.i<S.session.list.length-1){ S.session.i++; S.session.left=S.session.dur; S._exAnim=true; log("Volgende oefening (handmatig)"); } else { finishSession(false); return; } break;
+    case "exstop": clearInterval(timer); log(`Pauze gestopt bij oefening ${S.session.i+1} van ${S.session.list.length}`); S.session=null; S.screen="home"; toast("Pauze gestopt. Je volgende herinnering blijft staan."); break;
+    case "feel": S.feel=v; log("Gevoel na pauze: "+v); break;
+    case "backwork": S.screen="home"; log("Terug naar werk"); break;
+    case "join": S.joined=true; S.points+=10; log("Doet mee aan challenge"); tick("team"); toast("Je doet mee. Succes deze week!"); break;
+    case "nudge": log("Duwtje gestuurd naar "+v); toast(v+" krijgt een vriendelijk duwtje."); S._keep=true; break;
+  }
+  render();
+});
+document.addEventListener("change", e=>{
+  if(e.target.dataset.sel){ S.prefs[e.target.dataset.sel]=e.target.value; log(`Werkuur ${e.target.dataset.sel} = ${e.target.value}`); }
+  if(e.target.id==="interval"){ S.set.interval=+e.target.value; log("Herinneren na "+S.set.interval+" min"); if(S.set.interval>60) tick("set"); S._keep=true; render(); }
+});
+document.addEventListener("input", e=>{ if(e.target.id==="interval"){ const l=$("#intlabel"); if(l) l.textContent=e.target.value+" minuten zitten"; } });
+
+/* Onderzoekerspaneel */
+$("#trig-rem").addEventListener("click",()=>{
+  if(S.screen==="onb"){ S.screen="home"; }
+  if(S.screen==="exercise"||S.screen==="done") S.screen="home";
+  S.sat=Math.max(S.sat,58); S.notif=true;
+  log("ONDERZOEKER: herinnering verstuurd"); render();
+});
+$("#trig-focus").addEventListener("click",()=>{
+  if(S.screen==="onb") S.screen="home";
+  S.notif=null;
+  log("ONDERZOEKER: focusmoment gesimuleerd");
+  toast(S.set.smart ? "Je bent geconcentreerd aan het typen. Je pauze wacht tot je klaar bent." : "Slimme timing staat uit: de herinnering komt meteen.");
+  if(!S.set.smart){ S.notif=true; S.sat=Math.max(S.sat,58); }
+  render();
+});
+$("#reset").addEventListener("click",()=>{ clearInterval(timer); clearTimeout(remTimer); $("#secret").hidden=true; const d=S.device; S=fresh(); S.device=d; $("#csv").hidden=true; render(); });
+$("#copy-log").addEventListener("click",()=>{
+  const csv="tijd;toestel;scherm;actie\n"+S.log.map(l=>[l.t,l.device,l.screen,'"'+l.action.replace(/"/g,"'")+'"'].join(";")).join("\n");
+  const ta=$("#csv"); ta.value=csv; ta.hidden=false;
+  navigator.clipboard?.writeText(csv).then(()=>{ $("#copy-log").textContent="Gekopieerd"; setTimeout(()=>$("#copy-log").textContent="Kopieer als CSV",1500); }).catch(()=>{ ta.select(); });
+});
+
+
+/* Automatische herinneringen tijdens de test */
+let remTimer=null;
+function scheduleReminder(ms){
+  clearTimeout(remTimer);
+  remTimer=setTimeout(()=>{
+    if(["home","stats","team","settings"].includes(S.screen) && !S.notif){ S.sat=Math.max(S.sat,58); S.notif=true; log("Herinnering automatisch getoond"); render(); }
+    else scheduleReminder(8000);
+  },ms);
+}
+let taps=0, tapT=null;
+document.addEventListener("click",e=>{
+  if(e.target.closest(".pi, .side .mark")){ taps++; clearTimeout(tapT); tapT=setTimeout(()=>taps=0,1500); if(taps>=5){ taps=0; $("#secret").hidden=false; } }
+});
+document.addEventListener("keydown",e=>{ if(e.shiftKey && e.key.toLowerCase()==="l") $("#secret").hidden=!$("#secret").hidden; });
+$("#close-secret").addEventListener("click",()=>$("#secret").hidden=true);
+$("#secret").addEventListener("click",e=>{ if(e.target.id==="secret") $("#secret").hidden=true; });
+function markDev(){ document.querySelectorAll("#devchips .chip").forEach(c=>c.setAttribute("aria-pressed", (c.dataset.dv==="auto"&&!forced)||c.dataset.dv===forced)); }
+document.getElementById("devchips").addEventListener("click",e=>{ const c=e.target.closest("[data-dv]"); if(!c) return; forced = c.dataset.dv==="auto"?null:c.dataset.dv; S.device=S0device(); log("Weergave: "+c.dataset.dv); markDev(); render(); });
+window.addEventListener("hashchange",()=>{ readHash(); S.device=S0device(); markDev(); render(); });
+markDev();
+window.addEventListener("resize",()=>{ const d=S0device(); if(d!==S.device){ S.device=d; render(); } });
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(S.set.theme==="systeem") render(); }); }catch(e){}
+render();
+</script>
+</body>
+</html>
