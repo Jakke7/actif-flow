@@ -3,8 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}
+/* Geinstalleerde app: ruimte voor de statusbalk en de home-balk */
+.phone .screen,.laptop .screen{padding-top:env(safe-area-inset-top,0px)}
+.tabs{padding-bottom:max(16px, env(safe-area-inset-bottom,0px))}
+.install{background:var(--amber-soft);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.install strong{font-size:15px}
+.install ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.install .shareicon{display:inline-block;vertical-align:-3px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status.on i{background:#2E9E6B}
+.status.off i{background:var(--danger)}
+.bell{width:64px;height:64px;border-radius:20px;background:var(--pine-soft);color:var(--pine);display:grid;place-items:center}
+.bell svg{animation:ring 2.4s ease-in-out 1s infinite;transform-origin:50% 10%}
+@keyframes ring{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(8deg)}40%{transform:rotate(-5deg)}}
+.testcode{font-size:12px;color:var(--muted);text-align:center;padding:4px 0 8px}
+</style>
 <title>Actif Flow</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F5A4E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Actif Flow">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -420,7 +444,121 @@ let forced=null;
 function readHash(){ const h=(location.hash||"").slice(1).toLowerCase(); forced = h==="gsm"?"phone":h==="laptop"?"laptop":forced; }
 function S0device(){ return forced || (window.innerWidth<760 ? "phone" : "laptop"); }
 readHash();
-let S; S = fresh();
+const API="https://ajqedeqauimohmhwlvuo.supabase.co/functions/v1/api";
+const STORE="actifflow.v1";
+const today=()=>new Date().toISOString().slice(0,10);
+function newId(){ try{ return crypto.randomUUID(); }catch(e){ return "d-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10); } }
+let deviceId=null;
+try{ deviceId=localStorage.getItem("actifflow.device"); if(!deviceId){ deviceId=newId(); localStorage.setItem("actifflow.device",deviceId); } }catch(e){ deviceId=newId(); }
+const testCode = "AF-"+deviceId.replace(/[^a-z0-9]/gi,"").slice(0,6).toUpperCase();
+const PERSIST=["screen","step","prefs","set","sat","streak","points","moveMin","joined","plan","tasks","log","t0","pushOn","day"];
+function save(){ try{ const o={}; PERSIST.forEach(k=>o[k]=S[k]); if(["exercise","done"].includes(o.screen)) o.screen="home"; localStorage.setItem(STORE,JSON.stringify(o)); }catch(e){} }
+function load(){
+  const base=fresh();
+  try{
+    const o=JSON.parse(localStorage.getItem(STORE)||"null");
+    if(o){ PERSIST.forEach(k=>{ if(o[k]!==undefined) base[k]=o[k]; }); }
+  }catch(e){}
+  if(base.day!==today()){ // nieuwe dag: dagplanning opnieuw
+    const f=fresh(); base.plan=f.plan.map(p=>({...p,done:false})); base.sat=0; base.moveMin=0; base.day=today();
+  }
+  return base;
+}
+let S; S = load();
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+const isMobile = isIOS || /Android/i.test(navigator.userAgent);
+const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+let installEvt=null, swReg=null;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); installEvt=e; render(); });
+window.addEventListener("appinstalled",()=>{ installEvt=null; log("App geinstalleerd op beginscherm"); render(); });
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").then(r=>{ swReg=r; refreshPushState(); }).catch(()=>{});
+  navigator.serviceWorker.addEventListener("message",e=>{
+    if(e.data?.type==="open" && e.data.r) handleOpenParam(e.data.r);
+  });
+}
+async function api(path,body){
+  try{
+    const r=await fetch(API+"/"+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId,...body}),keepalive:true});
+    return await r.json().catch(()=>({}));
+  }catch(e){ return {error:"offline"}; }
+}
+const serverSettings=()=>({days:S.prefs.days,start:S.prefs.start,end:S.prefs.end,interval:S.set.interval,tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||"Europe/Brussels")});
+let setT=null;
+function syncSettings(){ if(!S.pushOn) return; clearTimeout(setT); setT=setTimeout(()=>api("settings",serverSettings()),800); }
+function b64ToBytes(b){ const p="=".repeat((4-b.length%4)%4); const s=atob((b+p).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(s,c=>c.charCodeAt(0)); }
+let pushBusy=false, pushMsg="";
+async function enablePush(){
+  if(pushBusy) return; pushBusy=true; pushMsg=""; render();
+  try{
+    if(!pushSupported) throw new Error(isIOS?"ios-install":"unsupported");
+    const perm=await Notification.requestPermission();
+    log("Meldingen toestemming: "+perm);
+    if(perm!=="granted") throw new Error("denied");
+    const reg=swReg||await navigator.serviceWorker.ready;
+    const {publicKey}=await fetch(API+"/vapid").then(r=>r.json());
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToBytes(publicKey)});
+    const res=await api("subscribe",{subscription:sub.toJSON(),...serverSettings(),enabled:true});
+    if(res.error) throw new Error("server");
+    S.pushOn=true; log("Meldingen aangezet"); toast("Meldingen staan aan.");
+  }catch(e){
+    const m=String(e.message||e);
+    pushMsg = m==="denied" ? "Je hebt meldingen geweigerd. Zet ze aan in de instellingen van je toestel, bij Actif Flow."
+      : m==="ios-install" ? "Op iPhone werken meldingen pas als de app op je beginscherm staat."
+      : m==="server" ? "De server reageert niet. Probeer het zo meteen opnieuw."
+      : "Je browser ondersteunt geen meldingen. Probeer Chrome of Safari.";
+    log("Meldingen aanzetten mislukt: "+m);
+  }
+  pushBusy=false; render();
+}
+async function disablePush(){
+  S.pushOn=false; await api("unsubscribe",{}); log("Meldingen uitgezet"); toast("Meldingen staan uit."); render();
+}
+async function refreshPushState(){
+  if(!pushSupported||!swReg) return;
+  try{
+    const sub=await swReg.pushManager.getSubscription();
+    if(sub && Notification.permission==="granted"){ if(!S.pushOn){ S.pushOn=true; render(); } api("subscribe",{subscription:sub.toJSON(),...serverSettings()}); }
+    else if(S.pushOn && Notification.permission!=="granted"){ S.pushOn=false; render(); }
+  }catch(e){}
+}
+function handleOpenParam(r){
+  if(S.screen==="onb") return;
+  if(r==="start"){ log("Melding aangetikt: Start nu"); startSession("melding"); return; }
+  log("Melding aangetikt"); S.sat=Math.max(S.sat,S.set.interval); S.notif=true; S.screen="home"; render();
+}
+/* Kliklog ook naar de server (alleen dit testtoestel, anoniem) */
+let outbox=[], flushT=null;
+function queueLog(e){ outbox.push(e); clearTimeout(flushT); flushT=setTimeout(flushLog,4000); }
+function flushLog(){ if(!outbox.length) return; const evs=outbox.splice(0,100); api("log",{events:evs}); }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"){ flushLog(); save(); } else { refreshPushState(); } });
+
+function installCard(){
+  if(isStandalone() || !isMobile) return "";
+  if(isIOS) return `<div class="install"><strong>Zet Actif Flow op je beginscherm</strong>
+    <ol><li>Tik onderaan in Safari op <b>Delen</b> <svg class="shareicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></li>
+    <li>Kies <b>Zet op beginscherm</b></li><li>Open Actif Flow via het nieuwe icoon</li></ol>
+    <span style="color:var(--muted);font-size:13px">Alleen zo krijg je meldingen op je iPhone. Gebruik je Chrome op iPhone? Open deze link dan eerst in Safari.</span></div>`;
+  if(installEvt) return `<div class="install"><strong>Zet Actif Flow op je beginscherm</strong><span>Dan open je de app met één tik, net als een gewone app.</span><button class="btn" data-act="install">Installeer de app</button></div>`;
+  return `<div class="install"><strong>Zet Actif Flow op je beginscherm</strong><span>Tik in Chrome rechtsboven op <b>⋮</b> en kies <b>App installeren</b> of <b>Toevoegen aan startscherm</b>.</span></div>`;
+}
+function pushCard(compact){
+  const iosBlocked = isIOS && !isStandalone();
+  const st = S.pushOn ? `<span class="status on"><i></i>Meldingen staan aan</span>` : `<span class="status off"><i></i>Meldingen staan uit</span>`;
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between"><div class="eyebrow">Meldingen op je vergrendelscherm</div>${compact?st:""}</div>
+    <p class="hint" style="margin:8px 0 12px">Je krijgt een melding op je werkdagen tussen ${S.prefs.start} en ${S.prefs.end}, ongeveer elke ${S.set.interval} minuten. De app hoeft daarvoor niet open te staan.</p>
+    ${iosBlocked ? `<p class="hint" style="margin:0 0 10px;color:var(--ink)">Zet de app eerst op je beginscherm en open hem daar. Daarna kan je hier meldingen aanzetten.</p>`:""}
+    ${pushMsg?`<p class="hint" style="margin:0 0 10px;color:var(--danger)">${pushMsg}</p>`:""}
+    <div class="row">
+      ${S.pushOn
+        ? `<button class="btn" data-act="pushtest">Stuur een testmelding</button><button class="btn ghost" data-act="pushoff">Zet uit</button>`
+        : `<button class="btn" data-act="pushon" ${iosBlocked||pushBusy?"disabled":""}>${pushBusy?"Even geduld…":"Zet meldingen aan"}</button>`}
+    </div>
+  </div>`;
+}
 let timer=null, toastTimer=null;
 
 const $ = s => document.querySelector(s);
@@ -429,10 +567,12 @@ const donePauses = () => S.plan.filter(p=>p.done).length;
 const nextPause = () => S.plan.find(p=>!p.done);
 
 function log(action){
-  const s=Math.round((Date.now()-S.t0)/1000);
-  const t=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
-  S.log.push({t, screen:S.screen, device:S.device, action});
-  renderPanel();
+  const d=new Date();
+  const t=d.toLocaleDateString("nl-BE",{day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("nl-BE",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const e={t, screen:S.screen, device:S.device+(isStandalone()?"-app":""), action};
+  S.log.push(e); if(S.log.length>500) S.log.shift();
+  queueLog(e); save();
+  if(typeof renderPanel==="function" && document.getElementById("tasks")) renderPanel();
 }
 function tick(id){ if(!S.tasks[id]){ S.tasks[id]=true; log("OPDRACHT VOLTOOID: "+TASKS.find(t=>t.id===id).text); } }
 function toast(msg){ S.toast=msg; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{S.toast=null; render();},2600); }
@@ -444,7 +584,7 @@ const sw = (key,on,label) => `<button class="sw" role="switch" aria-checked="${o
 /* ---------- Schermen ---------- */
 function onboarding(){
   const st=S.step, P=S.prefs;
-  const dots=`<div class="dots">${[0,1,2,3].map(i=>`<i class="${i<=st?"on":""}"></i>`).join("")}</div>`;
+  const dots=`<div class="dots">${[0,1,2,3,4].map(i=>`<i class="${i<=st?"on":""}"></i>`).join("")}</div>`;
   let body="";
   if(st===0){
     body=`<div class="eyebrow">Welkom</div>
@@ -455,12 +595,13 @@ function onboarding(){
       <div class="promise"><b>2</b><span>Oefeningen van 1 tot 5 minuten, gewoon aan je bureau</span></div>
       <div class="promise"><b>3</b><span>Samen met collega's je reeks volhouden</span></div>
     </div>
+    ${installCard()}
     <div class="spacer"></div>
     <button class="btn wide" data-act="next">Aan de slag</button>`;
   } else if(st===1){
     const days=["ma","di","wo","do","vr"];
     const opts=(sel,list)=>list.map(v=>`<option ${v===sel?"selected":""}>${v}</option>`).join("");
-    body=`<div class="eyebrow">Stap 1 van 3</div>
+    body=`<div class="eyebrow">Stap 1 van 4</div>
     <h2>Wanneer werk je thuis?</h2>
     <p class="lead">Zo plannen we pauzes enkel op je thuiswerkdagen.</p>
     <div class="chips">${days.map(d=>`<button class="chip" aria-pressed="${P.days.includes(d)}" data-act="day:${d}">${d}</button>`).join("")}</div>
@@ -472,14 +613,14 @@ function onboarding(){
     <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="next" ${P.days.length?"":"disabled"}>Volgende</button></div>`;
   } else if(st===2){
     const c=[["nek","Nek"],["schouders","Schouders"],["rug","Rug"],["ogen","Vermoeide ogen"],["benen","Stijve benen"],["wandel","Gewoon meer bewegen"]];
-    body=`<div class="eyebrow">Stap 2 van 3</div>
+    body=`<div class="eyebrow">Stap 2 van 4</div>
     <h2>Waar voel je het lange zitten?</h2>
     <p class="lead">We kiezen oefeningen die daarbij passen. Kies er zoveel je wil.</p>
     <div class="chips">${c.map(([k,l])=>`<button class="chip" aria-pressed="${P.complaints.includes(k)}" data-act="comp:${k}">${l}</button>`).join("")}</div>
     <div class="spacer"></div>
     <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="next">Volgende</button></div>`;
-  } else {
-    body=`<div class="eyebrow">Stap 3 van 3</div>
+  } else if(st===3){
+    body=`<div class="eyebrow">Stap 3 van 4</div>
     <h2>Koppel je agenda</h2>
     <p class="lead">Dan weten we wanneer je in een meeting zit en storen we je daar nooit.</p>
     <div class="card" style="padding:4px 16px">
@@ -488,7 +629,21 @@ function onboarding(){
     </div>
     <p class="hint">Je kan dit later altijd aanpassen bij Instellingen.</p>
     <div class="spacer"></div>
-    <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="finish">Klaar, start mijn dag</button></div>`;
+    <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="next">Volgende</button></div>`;
+  } else {
+    const iosBlocked = isIOS && !isStandalone();
+    body=`<div class="eyebrow">Stap 4 van 4</div>
+    <div class="bell">${icon('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',30)}</div>
+    <h2>Mogen we je een seintje geven?</h2>
+    <p class="lead">Dan krijg je je bewegingspauze als melding op je vergrendelscherm, ook als de app dicht is. Tussen ${S.prefs.start} en ${S.prefs.end}, op je thuiswerkdagen.</p>
+    ${iosBlocked?installCard():""}
+    ${pushMsg?`<p class="hint" style="margin:0;color:var(--danger)">${pushMsg}</p>`:""}
+    ${S.pushOn?`<span class="status on"><i></i>Meldingen staan aan</span>`:""}
+    <div class="spacer"></div>
+    ${S.pushOn
+      ? `<div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn" style="flex:1" data-act="finish">Klaar, start mijn dag</button></div>`
+      : `<button class="btn wide" data-act="pushon" ${iosBlocked||pushBusy?"disabled":""}>${pushBusy?"Even geduld…":"Ja, zet meldingen aan"}</button>
+         <div class="row"><button class="btn ghost" data-act="back">Terug</button><button class="btn ghost" style="flex:1" data-act="finish">Later, start zonder meldingen</button></div>`}`;
   }
   return `<div class="onb">${dots}${body}</div>`;
 }
@@ -506,6 +661,8 @@ function timeline(){
   <div class="legend"><span><i style="background:var(--amber)"></i>Pauze gedaan</span><span><i style="border:2px solid var(--amber);background:var(--surface)"></i>Gepland</span><span><i style="background:var(--meet)"></i>Meeting</span><span><i style="background:var(--focus);border:1px dashed var(--line)"></i>Focus</span></div>`;
 }
 
+function greeting(){ const h=new Date().getHours(); return h<12?"Goeiemorgen":h<18?"Goeiemiddag":"Goeieavond"; }
+function dayLabel(){ const d=new Date(); const names=["zo","ma","di","wo","do","vr","za"]; const n=names[d.getDay()]; const lbl=d.toLocaleDateString("nl-BE",{weekday:"long"}); return lbl.charAt(0).toUpperCase()+lbl.slice(1)+" · "+(S.prefs.days.includes(n)?"thuiswerkdag":"geen thuiswerkdag"); }
 function head(icn,title,sub){ return `<div class="hello pagehead"><span class="pi">${icon(icn,22)}</span><div><h2>${title}</h2><p>${sub}</p></div></div>`; }
 
 function home(){
@@ -513,7 +670,8 @@ function home(){
   const reason = np ? (np.t===11.03?"Na je Weekoverleg, zodat je niet gestoord wordt.":np.t===13.5?"Na je lunch, voor je volgende focusblok.":np.t===14.6?"Meteen na je klantcall.":"Halverwege je focusblok Analyse Q4.") : "";
   const C=2*Math.PI*40, f=Math.min(1,S.sat/S.set.interval);
   return `
-  ${head(NAV[0].icon,"Goeiemorgen, Jarne",`Donderdag · thuiswerkdag · ${S.prefs.start} tot ${S.prefs.end}`)}
+  ${head(NAV[0].icon,greeting(),`${dayLabel()} · ${S.prefs.start} tot ${S.prefs.end}`)}
+  ${S.pushOn?"":`<div class="install" style="flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap"><span><strong>Meldingen staan uit.</strong> Zet ze aan om je pauzes niet te missen.</span><button class="btn" data-act="go:settings">Aanzetten</button></div>`}
   <div class="card next">
     <div class="next-top">
       <div>
@@ -581,7 +739,19 @@ function team(){
 }
 
 function settings(){
+  const days=["ma","di","wo","do","vr","za","zo"];
+  const opts=(sel,list)=>list.map(v=>`<option ${v===sel?"selected":""}>${v}</option>`).join("");
   return `${head(NAV[3].icon,"Instellingen","Bepaal zelf hoe vaak en wanneer je een herinnering krijgt")}
+  ${installCard()}
+  ${pushCard(true)}
+  <div class="card">
+    <div class="eyebrow">Je thuiswerkdagen</div>
+    <div class="chips" style="margin-top:10px">${days.map(d=>`<button class="chip" aria-pressed="${S.prefs.days.includes(d)}" data-act="day:${d}">${d}</button>`).join("")}</div>
+    <div class="twocol" style="margin-top:12px">
+      <label class="field">Start<select id="set-start" data-sel="start">${opts(S.prefs.start,["07:00","07:30","08:00","08:30","09:00","09:30","10:00"])}</select></label>
+      <label class="field">Einde<select id="set-end" data-sel="end">${opts(S.prefs.end,["15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00"])}</select></label>
+    </div>
+  </div>
   <div class="card">
     <div class="eyebrow">Weergave</div>
     <div class="chips" style="margin-top:10px">${["licht","donker","systeem"].map(t=>`<button class="chip" aria-pressed="${S.set.theme===t}" data-act="theme:${t}">${t==="licht"?"Licht":t==="donker"?"Donker":"Zoals mijn toestel"}</button>`).join("")}</div>
@@ -604,7 +774,8 @@ function settings(){
     <div class="toggle"><div><strong>Outlook-agenda</strong><span>Nooit herinneringen tijdens meetings</span></div>${sw("outlook",S.prefs.outlook,"Outlook-agenda")}</div>
     <div class="toggle"><div><strong>Teams-status op "Beschikbaar"</strong><span>Tijdens pauzes van maximaal 5 minuten</span></div>${sw("teams",S.prefs.teams,"Teams-status")}</div>
     <div class="toggle"><div><strong>Stille uren</strong><span>Geen herinneringen tijdens je focusblokken voor 10:00</span></div>${sw("quiet",S.set.quiet,"Stille uren")}</div>
-  </div>`;
+  </div>
+  <div class="testcode">Jouw testcode: <b>${testCode}</b></div>`;
 }
 
 function figure(key){
@@ -709,12 +880,12 @@ function render(){
     : `<div class="laptop"><div class="bezel">${screenHtml}</div><div class="base"></div></div>`;
   const c=stage.querySelector(".content"); if(c && S._keep) c.scrollTop=keepScroll; S._keep=false;
   S._burst=false; S._stepAnim=false; S._exAnim=false;
-  renderPanel();
+  renderPanel(); save();
 }
 function renderPanel(){
   $("#tasks").innerHTML = TASKS.map(t=>`<li class="${S.tasks[t.id]?"ok":""}">${t.text}</li>`).join("");
   $("#log").innerHTML = S.log.length ? S.log.slice().reverse().map(l=>`<div><time>${l.t}</time><span>${l.action}</span></div>`).join("") : `<div><time>--:--</time><span>Nog geen kliks</span></div>`;
-  $("#logcount").textContent = `(${S.log.length})`;
+  $("#logcount").textContent = `(${S.log.length}) · testcode ${testCode}`;
 }
 
 /* ---------- Pauzesessie ---------- */
@@ -745,7 +916,7 @@ function finishSession(full){
   clearInterval(timer);
   const np=nextPause(); if(np) np.done=true;
   S.sat=0; S.points+=15; S.moveMin+=S.set.len; S.feel=null;
-  S.screen="done"; S.session=null; S._burst=true;
+  S.screen="done"; S.session=null; S._burst=true; if(S.pushOn) api("done",{});
   log(full?"Pauze volledig afgerond":"Pauze afgerond via knop");
   tick("break"); render();
 }
@@ -757,9 +928,13 @@ document.addEventListener("click", e=>{
   switch(a){
     case "next": S.step++; S._stepAnim=true; log("Onboarding: volgende (stap "+S.step+")"); break;
     case "back": S.step--; S._stepAnim=true; log("Onboarding: terug"); break;
-    case "day": { const d=S.prefs.days; d.includes(v)?d.splice(d.indexOf(v),1):d.push(v); log("Thuiswerkdag "+v+" "+(d.includes(v)?"aan":"uit")); break; }
+    case "day": { const d=S.prefs.days; d.includes(v)?d.splice(d.indexOf(v),1):d.push(v); log("Thuiswerkdag "+v+" "+(d.includes(v)?"aan":"uit")); syncSettings(); S._keep=true; break; }
+    case "install": if(installEvt){ installEvt.prompt(); installEvt.userChoice.then(c=>{ log("Installeren: "+c.outcome); installEvt=null; render(); }); } return;
+    case "pushon": enablePush(); return;
+    case "pushoff": disablePush(); return;
+    case "pushtest": log("Testmelding gevraagd"); api("test",{}).then(r=>{ toast(r.ok?"Testmelding verstuurd. Kijk op je vergrendelscherm.":r.error==="even wachten"?"Even wachten voor je opnieuw test.":"De testmelding lukte niet. Zet meldingen uit en weer aan."); render(); }); return;
     case "comp": { const c=S.prefs.complaints; c.includes(v)?c.splice(c.indexOf(v),1):c.push(v); log("Klacht "+v+" "+(c.includes(v)?"gekozen":"weg")); break; }
-    case "finish": S.screen="home"; log(`Onboarding klaar · dagen ${S.prefs.days.join("/")} · klachten ${S.prefs.complaints.join("/")||"geen"} · Outlook ${S.prefs.outlook?"ja":"nee"} · Teams ${S.prefs.teams?"ja":"nee"}`); tick("onb"); scheduleReminder(25000); break;
+    case "finish": S.screen="home"; syncSettings(); log(`Onboarding klaar · dagen ${S.prefs.days.join("/")} · klachten ${S.prefs.complaints.join("/")||"geen"} · Outlook ${S.prefs.outlook?"ja":"nee"} · Teams ${S.prefs.teams?"ja":"nee"}`); tick("onb"); if(!S.pushOn) scheduleReminder(25000); break;
     case "go": S.screen=v; log("Naar scherm "+NAV.find(n=>n.id===v).label); if(v==="home"&&S.tasks.onb){} break;
     case "sw": {
       if(v==="outlook"||v==="teams"){ S.prefs[v]=!S.prefs[v]; log(`${v==="outlook"?"Outlook-agenda":"Teams-status"} ${S.prefs[v]?"aan":"uit"}`); }
@@ -772,8 +947,8 @@ document.addEventListener("click", e=>{
     case "rem":
       if(v==="start"){ log("Herinnering: Start nu"); tick("rem"); startSession("herinnering"); return; }
       S.notif=null;
-      if(v==="task"){ log("Herinnering: Na deze taak"); toast("Oké, we wachten tot je je mails afrondt."); scheduleReminder(35000); }
-      else { log("Herinnering: Over 15 min"); const np=nextPause(); if(np) np.t+=0.25; toast("Uitgesteld tot "+hhmm(nextPause().t)+"."); scheduleReminder(35000); }
+      if(v==="task"){ log("Herinnering: Na deze taak"); toast("Oké, we wachten tot je je taak afrondt."); if(S.pushOn) api("snooze",{minutes:30}); else scheduleReminder(35000); }
+      else { log("Herinnering: Over 15 min"); const np=nextPause(); if(np) np.t+=0.25; toast("Uitgesteld tot "+hhmm(nextPause().t)+"."); if(S.pushOn) api("snooze",{minutes:15}); else scheduleReminder(35000); }
       tick("rem"); break;
     case "expause": S.session.paused=!S.session.paused; log(S.session.paused?"Oefening gepauzeerd":"Oefening hervat"); break;
     case "exnext": if(S.session.i<S.session.list.length-1){ S.session.i++; S.session.left=S.session.dur; S._exAnim=true; log("Volgende oefening (handmatig)"); } else { finishSession(false); return; } break;
@@ -786,8 +961,8 @@ document.addEventListener("click", e=>{
   render();
 });
 document.addEventListener("change", e=>{
-  if(e.target.dataset.sel){ S.prefs[e.target.dataset.sel]=e.target.value; log(`Werkuur ${e.target.dataset.sel} = ${e.target.value}`); }
-  if(e.target.id==="interval"){ S.set.interval=+e.target.value; log("Herinneren na "+S.set.interval+" min"); if(S.set.interval>60) tick("set"); S._keep=true; render(); }
+  if(e.target.dataset.sel){ S.prefs[e.target.dataset.sel]=e.target.value; log(`Werkuur ${e.target.dataset.sel} = ${e.target.value}`); syncSettings(); if(S.screen==="settings"){ S._keep=true; render(); } }
+  if(e.target.id==="interval"){ S.set.interval=+e.target.value; log("Herinneren na "+S.set.interval+" min"); if(S.set.interval>60) tick("set"); syncSettings(); S._keep=true; render(); }
 });
 document.addEventListener("input", e=>{ if(e.target.id==="interval"){ const l=$("#intlabel"); if(l) l.textContent=e.target.value+" minuten zitten"; } });
 
@@ -806,7 +981,7 @@ $("#trig-focus").addEventListener("click",()=>{
   if(!S.set.smart){ S.notif=true; S.sat=Math.max(S.sat,58); }
   render();
 });
-$("#reset").addEventListener("click",()=>{ clearInterval(timer); clearTimeout(remTimer); $("#secret").hidden=true; const d=S.device; S=fresh(); S.device=d; $("#csv").hidden=true; render(); });
+$("#reset").addEventListener("click",()=>{ clearInterval(timer); clearTimeout(remTimer); $("#secret").hidden=true; const d=S.device; const keepPush=S.pushOn; try{ localStorage.removeItem(STORE); }catch(e){} S=fresh(); S.device=d; S.day=today(); S.pushOn=keepPush; $("#csv").hidden=true; log("Prototype opnieuw gestart"); render(); });
 $("#copy-log").addEventListener("click",()=>{
   const csv="tijd;toestel;scherm;actie\n"+S.log.map(l=>[l.t,l.device,l.screen,'"'+l.action.replace(/"/g,"'")+'"'].join(";")).join("\n");
   const ta=$("#csv"); ta.value=csv; ta.hidden=false;
@@ -836,7 +1011,9 @@ window.addEventListener("hashchange",()=>{ readHash(); S.device=S0device(); mark
 markDev();
 window.addEventListener("resize",()=>{ const d=S0device(); if(d!==S.device){ S.device=d; render(); } });
 try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(S.set.theme==="systeem") render(); }); }catch(e){}
+if(!S.day) S.day=today();
 render();
+(function(){ const q=new URLSearchParams(location.search); const r=q.get("r"); if(r){ history.replaceState(null,"",location.pathname+location.hash); setTimeout(()=>handleOpenParam(r),300); } })();
 </script>
 </body>
 </html>

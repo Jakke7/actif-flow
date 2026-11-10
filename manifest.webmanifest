@@ -1,0 +1,18 @@
+{
+  "name": "Actif Flow",
+  "short_name": "Actif Flow",
+  "description": "Korte bewegingspauzes die passen in je thuiswerkdag.",
+  "lang": "nl-BE",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E8EEEB",
+  "theme_color": "#1F5A4E",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
